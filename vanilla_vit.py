@@ -9,6 +9,10 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 import timm
 
+source_folder = 'source'
+
+# Set seed
+seed = 1
 
 # Get STL10 data
 data_dir = '/fp/projects01/ec517/data' # Update this to fit your setup if not on Educloud
@@ -51,63 +55,7 @@ num_classes = 10
 # Load ViT model with pretrained weighs
 model_lora = timm.create_model('vit_tiny_patch16_224', pretrained=True, num_classes=num_classes).to(device)
 
-class LoRAWrapper(nn.Module):
-    
-    def __init__(self, linear, rank):
-        super().__init__()
-        assert isinstance(linear, nn.Linear)
 
-        # Save original weight and bias
-        self.register_buffer('orig_weight', linear.weight.data.detach().clone())
-        if linear.bias is not None:
-            self.register_buffer('orig_bias', linear.bias.data.detach().clone())
-        else:
-            self.register_buffer('orig_bias', None)
-
-        # Save the parameters you might need...
-        self.in_dim = linear.in_features
-        self.out_dim = linear.out_features
-        self.bias = linear.bias is not None
-        self.rank = min(rank, self.in_dim, self.out_dim)
-
-        # Initialize the A and B weights. You can do this with nn.Linear()
-        device = linear.weight.device # Place A and B on same device as W0
-        self.A = nn.Linear(self.rank, self.out_dim, bias=False, device=device) # No bias in original paper (see Section 4.2)
-        self.B = nn.Linear(self.in_dim, self.rank, bias=False, device=device) # No bias in original paper (see Section 4.2)
-
-        # Make sure the A weights are initialized with Gaussian random noise
-        nn.init.normal_(self.A.weight)
-
-        # Make sure the B weights are initialized with zeros
-        nn.init.zeros_(self.B.weight)
-
-    def forward(self, x):
-        W0x = F.linear(x, self.orig_weight, self.orig_bias)
-        deltaWx = self.A(self.B(x))
-
-        return W0x + deltaWx
-
-# Freeze all layers except classification head
-for name, param in model_lora.named_parameters():
-    if name in ['norm.weight', 'norm.bias', 'head.weight', 'head.bias']:
-        param.requires_grad = True
-    else:
-        param.requires_grad = False
-
-
-# LoRA wrapper
-for block in model_lora.blocks:
-
-    # Wrap linear layers in the attention block
-    block.attn.qkv = LoRAWrapper(block.attn.qkv, rank=4) # Rank = 4 matches paper
-    block.attn.proj = LoRAWrapper(block.attn.proj, rank=4) # Rank = 4 matches paper
-
-    # Unfreeze the attention block
-    block.attn.requires_grad_(True)
-
-    # Unfreeze LayerScale layers as well
-    block.ls1.requires_grad_(True)
-    block.ls2.requires_grad_(True)
 
 # Train ViT with LoRA wrapper
 
