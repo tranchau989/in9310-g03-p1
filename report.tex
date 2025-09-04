@@ -1,8 +1,11 @@
 \documentclass[10pt]{article}
 
+\usepackage{amsmath}
+\usepackage{amssymb}
+
 \begin{document}
 \title{Project 1 Report}
-\author{Chau Tran and User~2\\\footnotesize\texttt{cttran@uio.no}}
+\author{Chau Tran | Adrian Duric | Preben Castberg\\\footnotesize\texttt{cttran@uio.no} | \texttt{adriandu@uio.no} | \texttt{prebennc@uio.no}}
 \date{}
 \maketitle
 
@@ -22,13 +25,47 @@ In this section, you contextualize your project by referring to other research t
 We don't expect you to give a super detailed overview of all research about adaptation methods and ViTs that exists out there, but you can for example try to find some research on the performance of LoRA in different settings.
 Put your references in the \texttt{report.bib} file. There should be an example there already \cite{Test}.
 
-\section{Method}
-This section describes your methodology in detail. In particular, you should explain LoRA as well as any technical details about ViTs that are relevant.
-You can use the text in the \texttt{project-1} document as a starting point.
+\section{Low-Rank Adaptation}
+\label{sec:lora}
+
+Low-Rank Adaptation (LoRA) is a method that, given some pretrained weights in a neural network, indirectly continues to train the weights by freezing them, and then updating a new set of auxiliary weights which represent the change of the original weights \cite{hu2021loralowrankadaptationlarge}. Assume we have a pretrained layer of model weights $W_0 \in \mathbb{R}^{d \times k}$. LoRA indirectly updates this layer as $W_0 + \Delta W$, where $\Delta W = BA$ such that $B \in \mathbb{R}^{d \times r}$, $A \in \mathbb{R}^{r \times k}$ and $r \ll min(d, k)$ is the rank. When training the model with LoRA, $W_0$ is frozen so that only the weights in $A$ and $B$ are updated. For some input vector $x$ which would otherwise be projected as $h = W_0x$, the LoRA-based projection instead becomes:
+
+\begin{equation}
+    h = W_0x + \Delta Wx = W_0x + BAx
+\end{equation}
+
+Since both terms $W_0x$ and $BAx$ produce output vectors of the same dimensions, these vectors are summed elementwise, producing $h$.
+
+Upon beginning training with LoRA, $A$ is initialized with randomly sampled parameters from the Gaussian distribution, while $B$ is zero-initialized, meaning $BA$ is also zero when training begins. Notice that $W_0$ contains $d \cdot k$ parameters, while $BA$ contains $d \cdot r + r \cdot k = r(d + k)$ parameters. Since $r \ll min(d, k)$, updating $\Delta W = BA$ becomes computationally cheaper to update than $W_0$, while also requiring less memory than $W_0$ to store the parameters; it can even reduce total memory usage, since no gradients need to be kept in memory for $W_0$. This makes it inexpensive to store a finetuned model with the added LoRA decomposition for deployment in production tasks.
 
 \section{Experiments and Results}
 In this section you outline the experiments you have ran, and present the results.
 In general, we encourage the use of tables, graphs, and figures.
+
+\subsection{Finetuning ViT on ImageWoof}
+\label{subsec:finetuning_vit_imagewoof}
+
+To have a baseline performance level to which we can compare LoRA, we first finetuned a pretrained ViT \cite{dosovitskiy2021imageworth16x16words} model on the ImageWoof dataset, a subset of the ImageNet \cite{deng2009imagenet} dataset consisting of images from 10 different dog breeds. Relative to ImageNet, which contains a wide range of different image subjects, ImageWoof is more finegrained in the sense that the visual differences between different dog breeds tend to be more subtle than those between, say, a dog and a car. Differentiating between visual features that separate different dog breeds, or other similarly-looking sets of classes, is therefore typically considered a harder visual classification task than doing classification on broader-ranging sets of classes like in ImageNet.
+
+We used the \verb|vit_tiny_patch16_224| implementation of ViT provided by the \verb|timm| \cite{rw2019timm} model library, which is pretrained on ImageNet-21k and finetuned on ImageNet2012. We replaced the classification head with one for each of the 10 ImageWoof classes. We resized each image to $224 \times 224$ pixels, and applied channelwise normalization. During training, we also randomly cropped the input images. We used a batch size of 64, and optimized using stochastic gradient descent with a learning rate of 0.001 and the cross-entropy loss function. We measured and present top-1 validation accuracy after training the model for 5 epochs on ImageWoof.
+
+\subsubsection{Results}
+
+% TODO: Write this
+
+\subsection{Finetuning ViT + LoRA on ImageWoof}
+
+Having collected a baseline performance measurement from the standard ViT model, we then measured performance under the same circumstances when using LoRA to finetune the ViT model instead.
+
+We implemented LoRA by freezing all layers except the classification head of the ViT. Then for the linear layers of each attention block, we initialized auxiliary linear tensors $A$ and $B$ as described in Section \ref{sec:lora}, and let $A$ and $B$ be unfreezed so their parameters can be updated. We initialized them with rank $r = 4$, one of the rank values used in the original LoRA paper \cite{hu2021loralowrankadaptationlarge}. We otherwise followed the exact same experimental configuration as detailed in Section \ref{subsec:finetuning_vit_imagewoof}.
+
+\subsubsection{Results}
+
+% TODO: Write this
+
+\subsection{Visualizing ViT and LoRA Attention Maps}
+
+% TODO: Write this
 
 \section{Discussion}
 Here you discuss the results of your experiments. Did it match your initial hypotheses? Why/why not? What are the implications of the results?
