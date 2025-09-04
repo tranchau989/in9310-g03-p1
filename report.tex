@@ -2,11 +2,13 @@
 
 \usepackage{amsmath}
 \usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{subcaption}
 
 \begin{document}
 \title{Project 1 Report}
 \author{Chau Tran | Adrian Duric | Preben Castberg\\\footnotesize\texttt{cttran@uio.no} | \texttt{adriandu@uio.no} | \texttt{prebennc@uio.no}}
-\date{}
+\date{04/09/2025}
 \maketitle
 
 \begin{abstract}
@@ -51,7 +53,26 @@ We used the \verb|vit_tiny_patch16_224| implementation of ViT provided by the \v
 
 \subsubsection{Results}
 
-% TODO: Write this
+We present the total training time for the standard ViT model with 5 epochs of finetuning on ImageWoof, and accuracy on the validation set. We also present curves showing the progression of training accuracy and loss.
+
+\begin{table}[ht]
+    \centering
+    \begin{tabular}{c|c}
+        Accuracy (\%) &  92.2 \\
+        Training Time (minutes) & 18.66
+    \end{tabular}
+    \caption{Accuracy and training time for ViT on the ImageWoof validation set after finetuning.}
+    \label{tab:placeholder}
+\end{table}
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=1\linewidth]{images/training_loss_curve_vanilla.png}
+    \caption{Training loss and accuracy with standard ViT on ImageWoof over 5 epochs.}
+    \label{fig:placeholder}
+\end{figure}
+
+From the graphs, we observe normal behavior from the model during training. These results are compared to ViT + LoRA results in Section \ref{res_lora}.
 
 \subsection{Finetuning ViT + LoRA on ImageWoof}
 
@@ -60,18 +81,77 @@ Having collected a baseline performance measurement from the standard ViT model,
 We implemented LoRA by freezing all layers except the classification head of the ViT. Then for the linear layers of each attention block, we initialized auxiliary linear tensors $A$ and $B$ as described in Section \ref{sec:lora}, and let $A$ and $B$ be unfreezed so their parameters can be updated. We initialized them with rank $r = 4$, one of the rank values used in the original LoRA paper \cite{hu2021loralowrankadaptationlarge}. We otherwise followed the exact same experimental configuration as detailed in Section \ref{subsec:finetuning_vit_imagewoof}.
 
 \subsubsection{Results}
+\label{res_lora}
 
-% TODO: Write this
+We present the total training time for the ViT + LoRA model with 5 epochs of finetuning on ImageWoof, and accuracy on the validation set. We also present curves showing the progression of training accuracy and loss.
 
-\subsection{Visualizing ViT and LoRA Attention Maps}
+\begin{table}[ht]
+    \centering
+    \begin{tabular}{c|c}
+        Accuracy (\%) &  83.0 \\
+        Training Time (minutes) & 18.69
+    \end{tabular}
+    \caption{Accuracy and training time for ViT + LoRA on the ImageWoof validation set after finetuning.}
+    \label{tab:placeholder}
+\end{table}
 
-% TODO: Write this
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=1\linewidth]{images/training_loss_curve_LoRA.png}
+    \caption{Training loss and accuracy with ViT + LoRA on ImageWoof over 5 epochs.}
+    \label{fig:placeholder}
+\end{figure}
+
+We observe that the ViT + LoRA accuracy is significantly lower on the ImageWoof validation set than when using the standard ViT. This is surprising, given that the graphs of training accuracy and loss show similar values across epochs with only a minor dropoff of a couple of percentage points. In terms of training time, the two models were almost exactly equal.
+
+\subsection{Visualizing Attention Maps}
+Visualize the final attention maps of the ViT. How does the attention changes from the original ViT to the ViT+LoRA model?
+
+The attention mechanism in Vision Transformers (ViTs) allows the model to focus on different parts of an image when making predictions. To understand what the model ``looks at,'' we visualize these attention maps. Using functions provided in the \textit{w2\_ViT\_DINO\_DEMO} notebook, the models are slightly modified to capture the attention weights from the last attention layer, which is typically the most informative for classification tasks.
+
+The \texttt{attention\_forward\_wrapper} function overrides the forward pass of an attention layer. While keeping the core computation logic intact, it stores the attention probabilities in \texttt{attn\_map}, allowing us to access the attention maps later without interfering with the model's normal predictions. The last attention block of each model is patched to use this wrapper, so every forward pass automatically saves the attention map for the CLS token.
+
+To extract meaningful visualizations, the attention of the CLS token over all image patches is selected and averaged across all attention heads. This patch-level attention is reshaped into a square grid corresponding to the patch layout, upsampled to match the original image size, and normalized to a [0, 1] range. The resulting heatmap can then be visualized using two helper functions. The \texttt{show\_img\_overlay} function overlays the attention map on the original image with adjustable transparency, while \texttt{show\_img\_size\_by\_size} creates a side-by-side comparison showing the original image, the attention map alone, and the overlay. These visualizations provide insights into which parts of the image the model focuses on, giving a better understanding of the inner workings of transformer models.
+
+An example of how the attention maps look in both Vanilla ViT and ViT with LoRA is shown in Figure~\ref{fig:attentionmaps}. It compares the attention maps of a Vanilla ViT and a ViT enhanced with LoRA. In the Vanilla ViT, the attention is highly concentrated on a single region of the image, focusing strongly on the most discriminative feature of the object. By contrast, the ViT with LoRA produces a more distributed attention pattern, highlighting not only the main region but also capturing additional relevant details of the object. This suggests that LoRA encourages the model to become slightly more context-aware, balancing between strong focus and richer feature coverage.
+
+\begin{figure}[htbp]
+    \centering
+    % Top subplot
+    \begin{subfigure}[b]{0.9\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/vit_attention.png} % replace with your image
+        \caption{Vanilla ViT Attention Map Sample}
+        \label{fig:vit_attentionmap}
+    \end{subfigure}
+
+    \vspace{0.5cm} % optional space between subplots
+
+    % Bottom subplot
+    \begin{subfigure}[b]{0.9\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/lora_attention.png} % replace with your image
+        \caption{ViT with LoRA Attention Map Sample}
+        \label{fig:lora_attentionmap}
+    \end{subfigure}
+
+    \caption{An example of attention maps created from the vanilla ViT and Vit with LoRA.}
+    \label{fig:attentionmaps}
+\end{figure}
 
 \section{Discussion}
 Here you discuss the results of your experiments. Did it match your initial hypotheses? Why/why not? What are the implications of the results?
 
 \section{Conclusion}
-State your conclusion to tie up the report. This is alse where you can mention the direction of future work based on the results of this one.
+State your conclusion to tie up the report. This is else where you can mention the direction of future work based on the results of this one.
+
+From the first two experiments, we observed a significant dropoff in accuracy with ViT + LoRA compared to standard ViT, while the training times were almost equal.
+
+\section{Group Contributions}
+
+For the programming, Adrian wrote the code for the LoRA wrapper, freezing and unfreezing relevant parts of the models and the training and testing of the models. Preben wrote the code for conducting the first two experiments and obtaining result metrics that were presented in this report. Chau wrote the code for visualizing the attention maps with and without LoRA, the third experiment.
+
+For the report, Preben wrote the abstract, introduction and related work parts. Adrian wrote the methods part, as well as the experiment and results and conclusion parts regarding the first two experiments. Chau wrote the equivalent parts for the third experiment, as well as the discussion part.
 
 \bibliographystyle{IEEEtran}
 \bibliography{report}
