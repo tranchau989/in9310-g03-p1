@@ -12,13 +12,13 @@
 \maketitle
 
 \begin{abstract}
-In this project we present our experiments on fine-tuning a Vision Transformer (ViT) using two approaches: full fine-tuning, where all model parameters are updated, and Low-Rank Adaptation (LoRA), where only a much smaller set of parameters is trained. We apply both methods on the ImageWoof dataset and compare them in terms of accuracy, training time, and attention map visualizations. The key difference between the methods is that LoRA reduces the number of trainable parameters by orders of magnitude, with the goal of lowering computation and memory cost. In our results, full fine-tuning achieved higher accuracy, while LoRA gave slightly lower accuracy but showed broader attention in the visualizations. Training time was equivalent across both approaches.
+In this project we present our experiments on fine-tuning a Vision Transformer (ViT) using two approaches: full fine-tuning, where all model parameters are updated, and Low-Rank Adaptation (LoRA), where only a much smaller set of parameters is trained. We apply both methods to a classification task on the ImageWoof dataset and compare them in terms of accuracy, training time, and attention map visualizations. The key difference between the methods is that LoRA reduces the number of trainable parameters by orders of magnitude, with the goal of lowering computation and memory cost. In our results, full fine-tuning achieved higher accuracy, while LoRA gave slightly lower accuracy but showed broader attention in the visualizations. Training time was equivalent across both approaches.
 \end{abstract}
 
 \section{Introduction}
 In the realm of large-scale models like Vision Transformers (ViTs), we are seeing ever increasing model sizes and more powerful embeddings, along with a growing number of use cases. A common way to adapt these models is through fine-tuning. Here we take a pre-trained model, which has learned useful embeddings on large general datasets, and adapt it into a more specific classifier trained on a smaller, task-specific dataset. \\ 
 
-The dataset we focus on is ImageWoof, a fine-grained image classification benchmark with 10 different dog breeds. Unlike broader datasets, ImageWoof is challenging because many of the classes share very similar visual features. This makes it a good testbed to study the role of fine-tuning and the attention mechanism.\\ 
+The dataset we focus on is ImageWoof, a fine-grained image classification benchmark with 10 different dog breeds. Unlike broader datasets, ImageWoof is challenging because many of the classes share similar visual features. This makes it a good testbed to study the role of fine-tuning and the attention mechanism.\\ 
 
 In this project, our goal is to experimentally compare two fine-tuning approaches: full fine-tuning, where all model parameters are updated, and Low-Rank Adaptation (LoRA), where only a small number of additional parameters are trained. We implement both methods using the same ViT setup and measure performance, training time, and visualize the resulting attention maps.\\ 
 
@@ -44,8 +44,7 @@ Since both terms $W_0x$ and $BAx$ produce output vectors of the same dimensions,
 Upon beginning training with LoRA, $A$ is initialized with randomly sampled parameters from the Gaussian distribution, while $B$ is zero-initialized, meaning $BA$ is also zero when training begins. Notice that $W_0$ contains $d \cdot k$ parameters, while $BA$ contains $d \cdot r + r \cdot k = r(d + k)$ parameters. Since $r \ll min(d, k)$, updating $\Delta W = BA$ becomes computationally cheaper to update than $W_0$, while also requiring less memory than $W_0$ to store the parameters; it can even reduce total memory usage, since no gradients need to be kept in memory for $W_0$. This makes it inexpensive to store a finetuned model with the added LoRA decomposition for deployment in production tasks.
 
 \section{Experiments and Results}
-In this section you outline the experiments you have ran, and present the results.
-In general, we encourage the use of tables, graphs, and figures.
+This section details the experiments we have run, and their results.
 
 \subsection{Finetuning ViT on ImageWoof}
 \label{subsec:finetuning_vit_imagewoof}
@@ -77,7 +76,7 @@ We present the total training time for the standard ViT model with 5 epochs of f
 
 From the graphs, we observe normal behavior from the model during training. These results are compared to ViT + LoRA results in Section \ref{res_lora}.
 
-\subsection{Finetuning ViT + LoRA on ImageWoof}
+\subsection{Finetuning ViT+LoRA on ImageWoof}
 
 Having collected a baseline performance measurement from the standard ViT model, we then measured performance under the same circumstances when using LoRA to finetune the ViT model instead.
 
@@ -86,7 +85,7 @@ We implemented LoRA by freezing all layers except the classification head of the
 \subsubsection{Results}
 \label{res_lora}
 
-We present the total training time for the ViT + LoRA model with 5 epochs of finetuning on ImageWoof, and accuracy on the validation set. We also present curves showing the progression of training accuracy and loss.
+We present the total training time for the ViT+LoRA model with 5 epochs of finetuning on ImageWoof, and accuracy on the validation set. We also present curves showing the progression of training accuracy and loss.
 
 \begin{table}[ht]
     \centering
@@ -94,21 +93,20 @@ We present the total training time for the ViT + LoRA model with 5 epochs of fin
         Accuracy (\%) &  89.0 \\
         Training Time (minutes) & 18.69
     \end{tabular}
-    \caption{Accuracy and training time for ViT + LoRA on the ImageWoof validation set after finetuning.}
+    \caption{Accuracy and training time for ViT+LoRA on the ImageWoof validation set after finetuning.}
     \label{tab:placeholder}
 \end{table}
 
 \begin{figure}[ht]
     \centering
     \includegraphics[width=1\linewidth]{images/training_loss_curve_LoRA.png}
-    \caption{Training loss and accuracy with ViT + LoRA on ImageWoof over 5 epochs.}
+    \caption{Training loss and accuracy with ViT+LoRA on ImageWoof over 5 epochs.}
     \label{fig:placeholder}
 \end{figure}
 
-We observe that the ViT + LoRA accuracy is a few percentage points lower on the ImageWoof validation set than when using the standard ViT. In terms of training time, the two models were almost exactly equal.
+We observe that the ViT+LoRA accuracy is a few percentage points lower on the ImageWoof validation set than when using the standard ViT. In terms of training time, the two models were almost exactly equal.
 
 \subsection{Visualizing Attention Maps}
-Visualize the final attention maps of the ViT. How does the attention changes from the original ViT to the ViT+LoRA model?
 
 The attention mechanism in Vision Transformers (ViTs) allows the model to focus on different parts of an image when making predictions. To understand what the model ``looks at,'' we visualize these attention maps. Using functions provided in the \textit{w2\_ViT\_DINO\_DEMO} notebook, the models are slightly modified to capture the attention weights from the last attention layer, which is typically the most informative for classification tasks.
 
@@ -116,12 +114,12 @@ The \texttt{attention\_forward\_wrapper} function overrides the forward pass of 
 
 To extract meaningful visualizations, the attention of the CLS token over all image patches is selected and averaged across all attention heads. This patch-level attention is reshaped into a square grid corresponding to the patch layout, upsampled to match the original image size, and normalized to a [0, 1] range. The resulting heatmap can then be visualized using helper functions. The \texttt{show\_attention\_grid} arranges multiple images and their corresponding attention maps in a grid, displaying each image alongside its attention map for side-by-side comparison. This layout follows the setup of DiNOv3 attention map figure. It allows for clear inspection of the model's focus across multiple samples, providing better insights into the inner workings of transformer models.
 
-An example of how the attention maps look in both Vanilla ViT and ViT with LoRA is shown in Figure~\ref{fig:attentionmaps}. The comparison highlights clear differences between the two models. In the Vanilla ViT, the attention maps are often diffuse or misplaced, with the model sometimes focusing on background regions rather than the main object. For instance, in the third image of the second row (a person holding a white dog), the Vanilla ViT spreads attention across the background instead of concentrating on the dog. Similarly, in the last image of the first row, the Vanilla ViT fails to capture the full structure of the dog, only lighting up fragmented patches. By contrast, the ViT with LoRA produces sharper and more object-centered attention, consistently covering the target dogs more completely. For example, in the same image with the person holding the dog, the LoRA-enhanced model correctly centers attention on the dog, and in the jumping dog case (row two, fourth column), it outlines the entire body instead of only scattered regions. This suggests that LoRA improves the model’s ability to localize objects, leading to cleaner and more semantically meaningful attention maps.
+An example of the attention maps for both ViT and ViT+LoRA is shown in Figure~\ref{fig:attentionmaps}, highlighting differences in how the models distribute focus. In some cases, the vanilla ViT produces compact and accurate attention on the main object, while in others its attention can be diffuse or partially misplaced, sometimes highlighting background regions rather than the target. For instance, in the third image of the second row (a person holding a white dog), the vanilla ViT spreads attention over the person and surrounding area rather than concentrating on the dog. Similarly, in the last image of the first row, it attends only to fragmented parts of the dog. The ViT with LoRA often produces sharper, more object-centered attention that better covers the target. In the person-holding-dog example, LoRA correctly centers attention on the dog, and in the jumping dog case (row two, fourth column), it outlines the body more comprehensively than the vanilla ViT. However, in more complex scenes—such as an image with multiple humans playing with dogs and additional distracting items in front—the LoRA map spreads energy over the people and background, while the vanilla ViT focuses more tightly on individual dogs, though sometimes missing some of them. These examples show that LoRA tends to enhance object-focused attention, but its effect varies with image complexity and context.
 
 \begin{figure}[htbp]
     \centering
     % Top subplot
-    \begin{subfigure}[b]{0.9\textwidth}
+    \begin{subfigure}[b]{1\textwidth}
         \centering
         \includegraphics[width=\textwidth]{images/grid_attention_vit.png} % replace with your image
         \caption{Vanilla ViT Attention Map Sample}
@@ -131,24 +129,26 @@ An example of how the attention maps look in both Vanilla ViT and ViT with LoRA 
     \vspace{0.5cm} % optional space between subplots
 
     % Bottom subplot
-    \begin{subfigure}[b]{0.9\textwidth}
+    \begin{subfigure}[b]{1\textwidth}
         \centering
         \includegraphics[width=\textwidth]{images/grid_attention_lora.png} % replace with your image
         \caption{ViT with LoRA Attention Map Sample}
         \label{fig:lora_attentionmap}
     \end{subfigure}
 
-    \caption{An example of attention maps created from the Vanilla ViT and Vit with LoRA.}
+    \caption{An example of attention maps created from the vanilla ViT and Vit with LoRA.}
     \label{fig:attentionmaps}
 \end{figure}
 
 \section{Discussion}
-Here you discuss the results of your experiments. Did it match your initial hypotheses? Why/why not? What are the implications of the results?
+ViT with LoRA introduces low-rank adapters in place of fully fine-tuning all parameters of the Vision Transformer. This approach is expected to reduce the number of trainable parameters, thereby lowering memory requirements and potentially speeding up training. However, in our experiments, we did not observe a noticeable difference in training time between the vanilla ViT and ViT+LoRA. One possible explanation is the relatively small size of the ViT-Small model used in this study. Since the full model already contains a modest number of parameters, freezing them does not bring a substantial efficiency gain, and the additional LoRA matrices (A and B) may offset the expected savings. For larger backbone models (e.g., ViT-Base or ViT-Large), the trade-off would likely become more apparent.
+
+Although the attention maps show that ViT+LoRA is more object-centered and produces sharper, semantically meaningful focus on the target objects, the vanilla ViT achieves higher classification accuracy. A hypothesis reason can be the capacity trade-off. It means by constraining parameter updates to a low-rank subspace, LoRA reduces representational flexibility, which can slightly hurt performance in cases where full fine-tuning can exploit all available capacity. LoRA is still very useful in cases where saving memory and training time is more important than getting the very best accuracy. For example, it works well on smaller devices with limited resources, or in fields like medical imaging where we want the model’s attention to be clear and trustworthy. Another advantage is that we can train small LoRA adapters for different tasks (like one for classifying medical scans and another for satellite images) without retraining the whole model each time.
 
 \section{Conclusion}
-State your conclusion to tie up the report. This is else where you can mention the direction of future work based on the results of this one.
+In this study, we set out to compare full fine-tuning and LoRA-based fine-tuning of Vision Transformers on the ImageWoof benchmark. While LoRA was expected to reduce the number of trainable parameters and ease the training burden, our experiments with ViT-Small showed little difference in training time compared to the vanilla setup. Moreover, we observed that the vanilla ViT achieved higher classification accuracy, even though LoRA produced more object-centered and interpretable attention maps. This suggests that on smaller backbones, the parameter savings of LoRA are offset by a loss in representational flexibility. 
 
-From the first two experiments, we observed a moderate dropoff in accuracy with ViT + LoRA compared to standard ViT, while the training times were almost equal.
+Nevertheless, LoRA remains attractive in scenarios where efficiency, modular adaptation, or interpretability are valued over raw accuracy—for instance, in resource-constrained environments or safety-critical applications like medical imaging. Future work should extend this comparison to larger ViT models and more diverse datasets, where LoRA’s advantages may become more pronounced.
 
 \section{Group Contributions}
 
