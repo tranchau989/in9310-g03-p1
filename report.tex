@@ -12,20 +12,23 @@
 \maketitle
 
 \begin{abstract}
-  This is an example. Use this template as a starting point for writing your report for project 1. The abstract is usually between 100-400 words, and should summarize the contents of your report. In short, state the problem and the methods you have used, and give your results and conclusion.
+In this project we present our experiments on fine-tuning a Vision Transformer (ViT) using two approaches: full fine-tuning, where all model parameters are updated, and Low-Rank Adaptation (LoRA), where only a much smaller set of parameters is trained. We apply both methods on the ImageWoof dataset and compare them in terms of accuracy, training time, and attention map visualizations. The key difference between the methods is that LoRA reduces the number of trainable parameters by orders of magnitude, with the goal of lowering computation and memory cost. In our results, full fine-tuning achieved higher accuracy, while LoRA gave slightly lower accuracy but showed broader attention in the visualizations. Training time was equivalent across both approaches.
 \end{abstract}
 
 \section{Introduction}
-Use the introduction to describe the problem, the methods you will apply to investigate or solve it, any hypotheses you have, and outline your findings.
-How you organize the text is up to you, but keep in mind that you are in a sense telling the story of how your project went (without the gritty details). You want to capture the interest of the reader and then keep them interested enough to read your whole paper!
-Why is the problem relevant? How are the results useful? What are the implications of your results?
-Imagine that you are trying to ``sell'' your ``product'' (i.e. your project and results).
-Feel free to use the problem description in the \texttt{project-1} document as a starting point.
+In the realm of large-scale models like Vision Transformers (ViTs), we are seeing ever increasing model sizes and more powerful embeddings, along with a growing number of use cases. A common way to adapt these models is through fine-tuning. Here we take a pre-trained model, which has learned useful embeddings on large general datasets, and adapt it into a more specific classifier trained on a smaller, task-specific dataset. \\ 
+
+The dataset we focus on is ImageWoof, a fine-grained image classification benchmark with 10 different dog breeds. Unlike broader datasets, ImageWoof is challenging because many of the classes share very similar visual features. This makes it a good testbed to study the role of fine-tuning and the attention mechanism.\\ 
+
+In this project, our goal is to experimentally compare two fine-tuning approaches: full fine-tuning, where all model parameters are updated, and Low-Rank Adaptation (LoRA), where only a small number of additional parameters are trained. We implement both methods using the same ViT setup and measure performance, training time, and visualize the resulting attention maps.\\ 
+
+Our main contributions are: (i) a baseline fine-tuning of ViT on ImageWoof, (ii) a LoRA implementation with the same setup, and (iii) a comparison of attention maps between the two approaches. We place particular focus on whether LoRA can achieve similar performance with fewer trainable parameters, and what differences we see in the attention visualizations. Our result are documented in detail, with the supporting metrics and visualizations, in part 4.
 
 \section{Related Work}
-In this section, you contextualize your project by referring to other research that inspired, is similar to, or is otherwise related to your own.
-We don't expect you to give a super detailed overview of all research about adaptation methods and ViTs that exists out there, but you can for example try to find some research on the performance of LoRA in different settings.
-Put your references in the \texttt{report.bib} file. There should be an example there already \cite{Test}.
+In the original LoRA paper \cite{hu2021loralowrankadaptationlarge} they present us with both impressive but also necessary optimizations in fine-tuning. They fundamentally lay out the landscape of fine-tuning where huge models are expensive to fine-tune, and they show that we can bypass this limitation by restricting the trainable weights by multiple orders of magnitude. They even suggest decomposing the fine-tuned adjustments to the weights down to much lower rank matrices that approximate the patterns in the actual gradient update to the weights, they even note the use of a rank 1 matrix. Their results demonstrate a 25\% speed up in fine-tuning GPT-3 175B with LoRA compared to full fine-tuning, alongside a three-fold reduction in memory requirements.\\
+
+The broader landscape of LoRA research has expanded significantly since its introduction. Yang et al. \cite{yang2024lowrankadaptationfoundationmodels} provide a comprehensive survey of LoRA techniques beyond their original language modeling context, examining applications across computer vision, speech recognition, and scientific discovery. They highlight that while LoRA was initially developed for LLMs, its parameter-efficient approach has found widespread adoption across diverse foundation models. The paper digs into optimizations and future directions of LoRA to ensure “scalability, and robustness” \cite{yang2024lowrankadaptationfoundationmodels}. The choice of rank is discussed as it is central to how few parameters we can get away with adjusting. They discuss both rank refinement where we vary the rank across layers or tasks adaptively, and rank augmentation, where multiple low-rank updates are combined to mimic a higher-rank 
+transformation. This is intuitive to our idea of how different layers in deep neural networks are quite heterogeneous in terms of size and function. Beyond rank, they also survey methods that improve the training process itself, such as using different learning rates for the A and B matrices (LoRA+) or adjusting the scaling factor to avoid gradient collapse at higher ranks (rsLoRA).
 
 \section{Low-Rank Adaptation}
 \label{sec:lora}
@@ -88,7 +91,7 @@ We present the total training time for the ViT + LoRA model with 5 epochs of fin
 \begin{table}[ht]
     \centering
     \begin{tabular}{c|c}
-        Accuracy (\%) &  83.0 \\
+        Accuracy (\%) &  89.0 \\
         Training Time (minutes) & 18.69
     \end{tabular}
     \caption{Accuracy and training time for ViT + LoRA on the ImageWoof validation set after finetuning.}
@@ -102,7 +105,7 @@ We present the total training time for the ViT + LoRA model with 5 epochs of fin
     \label{fig:placeholder}
 \end{figure}
 
-We observe that the ViT + LoRA accuracy is significantly lower on the ImageWoof validation set than when using the standard ViT. This is surprising, given that the graphs of training accuracy and loss show similar values across epochs with only a minor dropoff of a couple of percentage points. In terms of training time, the two models were almost exactly equal.
+We observe that the ViT + LoRA accuracy is a few percentage points lower on the ImageWoof validation set than when using the standard ViT. In terms of training time, the two models were almost exactly equal.
 
 \subsection{Visualizing Attention Maps}
 Visualize the final attention maps of the ViT. How does the attention changes from the original ViT to the ViT+LoRA model?
@@ -111,16 +114,16 @@ The attention mechanism in Vision Transformers (ViTs) allows the model to focus 
 
 The \texttt{attention\_forward\_wrapper} function overrides the forward pass of an attention layer. While keeping the core computation logic intact, it stores the attention probabilities in \texttt{attn\_map}, allowing us to access the attention maps later without interfering with the model's normal predictions. The last attention block of each model is patched to use this wrapper, so every forward pass automatically saves the attention map for the CLS token.
 
-To extract meaningful visualizations, the attention of the CLS token over all image patches is selected and averaged across all attention heads. This patch-level attention is reshaped into a square grid corresponding to the patch layout, upsampled to match the original image size, and normalized to a [0, 1] range. The resulting heatmap can then be visualized using two helper functions. The \texttt{show\_img\_overlay} function overlays the attention map on the original image with adjustable transparency, while \texttt{show\_img\_size\_by\_size} creates a side-by-side comparison showing the original image, the attention map alone, and the overlay. These visualizations provide insights into which parts of the image the model focuses on, giving a better understanding of the inner workings of transformer models.
+To extract meaningful visualizations, the attention of the CLS token over all image patches is selected and averaged across all attention heads. This patch-level attention is reshaped into a square grid corresponding to the patch layout, upsampled to match the original image size, and normalized to a [0, 1] range. The resulting heatmap can then be visualized using helper functions. The \texttt{show\_attention\_grid} arranges multiple images and their corresponding attention maps in a grid, displaying each image alongside its attention map for side-by-side comparison. This layout follows the setup of DiNOv3 attention map figure. It allows for clear inspection of the model's focus across multiple samples, providing better insights into the inner workings of transformer models.
 
-An example of how the attention maps look in both Vanilla ViT and ViT with LoRA is shown in Figure~\ref{fig:attentionmaps}. It compares the attention maps of a Vanilla ViT and a ViT enhanced with LoRA. In the Vanilla ViT, the attention is highly concentrated on a single region of the image, focusing strongly on the most discriminative feature of the object. By contrast, the ViT with LoRA produces a more distributed attention pattern, highlighting not only the main region but also capturing additional relevant details of the object. This suggests that LoRA encourages the model to become slightly more context-aware, balancing between strong focus and richer feature coverage.
+An example of how the attention maps look in both Vanilla ViT and ViT with LoRA is shown in Figure~\ref{fig:attentionmaps}. The comparison highlights clear differences between the two models. In the Vanilla ViT, the attention maps are often diffuse or misplaced, with the model sometimes focusing on background regions rather than the main object. For instance, in the third image of the second row (a person holding a white dog), the Vanilla ViT spreads attention across the background instead of concentrating on the dog. Similarly, in the last image of the first row, the Vanilla ViT fails to capture the full structure of the dog, only lighting up fragmented patches. By contrast, the ViT with LoRA produces sharper and more object-centered attention, consistently covering the target dogs more completely. For example, in the same image with the person holding the dog, the LoRA-enhanced model correctly centers attention on the dog, and in the jumping dog case (row two, fourth column), it outlines the entire body instead of only scattered regions. This suggests that LoRA improves the model’s ability to localize objects, leading to cleaner and more semantically meaningful attention maps.
 
 \begin{figure}[htbp]
     \centering
     % Top subplot
     \begin{subfigure}[b]{0.9\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{images/vit_attention.png} % replace with your image
+        \includegraphics[width=\textwidth]{images/grid_attention_vit.png} % replace with your image
         \caption{Vanilla ViT Attention Map Sample}
         \label{fig:vit_attentionmap}
     \end{subfigure}
@@ -130,12 +133,12 @@ An example of how the attention maps look in both Vanilla ViT and ViT with LoRA 
     % Bottom subplot
     \begin{subfigure}[b]{0.9\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{images/lora_attention.png} % replace with your image
+        \includegraphics[width=\textwidth]{images/grid_attention_lora.png} % replace with your image
         \caption{ViT with LoRA Attention Map Sample}
         \label{fig:lora_attentionmap}
     \end{subfigure}
 
-    \caption{An example of attention maps created from the vanilla ViT and Vit with LoRA.}
+    \caption{An example of attention maps created from the Vanilla ViT and Vit with LoRA.}
     \label{fig:attentionmaps}
 \end{figure}
 
@@ -145,7 +148,7 @@ Here you discuss the results of your experiments. Did it match your initial hypo
 \section{Conclusion}
 State your conclusion to tie up the report. This is else where you can mention the direction of future work based on the results of this one.
 
-From the first two experiments, we observed a significant dropoff in accuracy with ViT + LoRA compared to standard ViT, while the training times were almost equal.
+From the first two experiments, we observed a moderate dropoff in accuracy with ViT + LoRA compared to standard ViT, while the training times were almost equal.
 
 \section{Group Contributions}
 
